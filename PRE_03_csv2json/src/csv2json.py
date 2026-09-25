@@ -12,7 +12,7 @@ def convert_csv_2_json(input_file):
     data = []
 
     with open(input_file, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+        reader = csv.DictReader(f) # Devuelve las filas como un diccionario. 
         for row in reader:
             data.append(row)
 
@@ -22,7 +22,7 @@ def convert_csv_2_json(input_file):
     ui.notify("The file was transformed successfully!")
 
 
-def app():
+def app(): # interfax
     """Main function to run the app"""
 
     ui.label("CSV to JSON Converter").classes("text-4xl font-bold")
