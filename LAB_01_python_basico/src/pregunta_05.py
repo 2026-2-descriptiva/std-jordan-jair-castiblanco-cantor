@@ -9,4 +9,26 @@ def pregunta_05():
         [("A", 9, 2), ("B", 9, 1), ...]
     """
 
-    raise NotImplementedError
+    import gzip
+
+    with gzip.open("data/data.csv.gz", "rt", encoding="utf-8") as archivo:
+        valores_por_letra = {}
+
+        for linea in archivo:
+            letra, valor = linea.split()[0], int(linea.split()[1])
+
+            if letra in valores_por_letra:
+                valores_por_letra[letra].append(valor)
+            else:
+                valores_por_letra[letra] = [valor]
+
+        resultado = []
+
+        for letra, valores in valores_por_letra.items():
+            maximo = max(valores)
+            minimo = min(valores)
+            resultado.append((letra, maximo, minimo))
+
+        resultado.sort()
+
+        return resultado

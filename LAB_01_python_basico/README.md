@@ -3,7 +3,7 @@
 ## Propósito
 
 Resolver transformaciones y resúmenes sobre un archivo tabular usando exclusivamente Python estándar. La actividad desarrolla la capacidad de leer archivos, usar estructuras de datos, recorrer registros y construir resultados reproducibles antes de usar Pandas.
-
+ 
 ## Competencia evaluada
 
 Construye resúmenes descriptivos reproducibles a partir de datos tabulares mediante funciones de Python y comunica el resultado con una estructura de datos precisa.

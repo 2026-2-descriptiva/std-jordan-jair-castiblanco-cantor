@@ -3,9 +3,17 @@ def pregunta_01():
     Calcule la suma de los valores de la segunda columna (`value`) del
     archivo `data/data.csv.gz` y retorne el resultado como un número entero.
 
-    Ejemplo del formato de la respuesta:
+    Ejemplo del formato de la respuesta: 
 
         214
     """
+    import gzip
 
-    raise NotImplementedError
+    with gzip.open("data/data.csv.gz", "rt", encoding="utf-8") as archivo:
+        suma = 0
+
+        for linea in archivo:
+            valor = int(linea.split()[1])
+            suma += valor
+
+        return suma

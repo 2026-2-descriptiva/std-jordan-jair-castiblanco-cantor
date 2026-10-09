@@ -1,5 +1,5 @@
 def pregunta_01():
-    """
+    """ 
     El archivo `data/clusters_report.txt` es un reporte de clústeres de
     palabras clave pensado para ser leído por una persona, no por un programa:
     los encabezados ocupan varias líneas, las columnas están alineadas con
@@ -26,4 +26,78 @@ def pregunta_01():
         ...
     """
 
-    raise NotImplementedError
+def pregunta_01():
+    import pandas as pd
+
+    registros = []
+    hay_cluster = False
+    palabras_clave = ""
+
+    with open("data/clusters_report.txt", "r", encoding="utf-8") as archivo:
+
+        for linea in archivo:
+            elementos = linea.split()
+
+            if elementos and elementos[0].isdigit():
+
+                if hay_cluster:
+
+                    texto = " ".join(palabras_clave.split())
+                    palabras = texto.split(",")
+
+                    palabras_limpias = []
+
+                    for palabra in palabras:
+                        palabra = palabra.strip()
+
+                        if palabra:
+                            palabras_limpias.append(palabra)
+
+                    registro = {
+                        "cluster": cluster,
+                        "cantidad_de_palabras_clave": cantidad,
+                        "porcentaje_de_palabras_clave": porcentaje,
+                        "principales_palabras_clave": ", ".join(palabras_limpias).rstrip(".")
+                    }
+
+                    registros.append(registro)
+
+                cluster = int(elementos[0])
+                cantidad = int(elementos[1])
+                porcentaje = float(elementos[2].replace(",", "."))
+
+                partes = linea.split("%", 1)
+                palabras_clave = partes[1].strip()
+
+                hay_cluster = True
+
+            else:
+                if hay_cluster:
+                    palabras = linea.strip()
+
+                    if palabras:
+                        palabras_clave += " " + palabras
+
+        if hay_cluster:
+
+            texto = " ".join(palabras_clave.split())
+            palabras = texto.split(",")
+
+            palabras_limpias = []
+
+            for palabra in palabras:
+                palabra = palabra.strip()
+
+                if palabra:
+                    palabras_limpias.append(palabra)
+
+            registro = {
+                "cluster": cluster,
+                "cantidad_de_palabras_clave": cantidad,
+                "porcentaje_de_palabras_clave": porcentaje,
+                "principales_palabras_clave": ", ".join(palabras_limpias).rstrip(".")
+            }
+
+            registros.append(registro)
+
+    return pd.DataFrame(registros)

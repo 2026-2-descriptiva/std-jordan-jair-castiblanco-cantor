@@ -48,4 +48,111 @@ def main():
         }
     """
 
-    raise NotImplementedError
+    import json
+    import pandas as pd
+
+    ventas = pd.read_csv("data/ventas.csv.gz")
+
+    # Normalizar nombres de columnas
+    nuevos_nombres = []
+
+    for name in ventas.columns:
+        name = name.replace("\ufeff", "")
+        name = name.strip().lower().replace(" ", "_")
+        nuevos_nombres.append(name)
+
+    ventas.columns = nuevos_nombres
+
+    # Columnas requeridas
+    requeridas = [
+        "supplier_id",
+        "supplier",
+        "country",
+        "city",
+        "purchase_date",
+        "amount",
+        "discount",
+        "weight",
+        "units",
+        "unit_price",
+        "contact_email"
+    ]
+
+    # Columnas requeridas que faltan
+    missing_required_columns = []
+
+    for columna in requeridas:
+        if columna not in nuevos_nombres:
+            missing_required_columns.append(columna)
+
+    missing_required_columns = sorted(missing_required_columns)
+
+    # Columnas inesperadas
+    unexpected_columns = []
+
+    for columna in nuevos_nombres:
+        if columna not in requeridas:
+            unexpected_columns.append(columna)
+
+    unexpected_columns = sorted(unexpected_columns)
+
+    # Filas completamente duplicadas
+    duplicate_row_count = sum(ventas.duplicated())
+
+    # Filas con supplier_id repetido
+    conteo_supplier = ventas["supplier_id"].value_counts()
+
+    duplicate_supplier_id_row_count = 0
+
+    for cantidad in conteo_supplier:
+        if cantidad > 1:
+            duplicate_supplier_id_row_count += cantidad
+
+    # Valores faltantes por columna
+    missing_value_count_by_column = ventas.isna().sum().to_dict()
+
+    # Correos inválidos
+    invalid_email_count = len(ventas) - sum(
+        ventas["contact_email"].str.match(
+            r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+        )
+    )
+
+    # Unidades inválidas
+    invalid_unit_count = 0
+
+    for valor in ventas["units"]:
+
+        if pd.isna(valor):
+            continue
+
+        if valor <= 0 or not valor.is_integer():
+            invalid_unit_count += 1
+
+    # Valores distintos de país
+    country_values = sorted(ventas["country"].unique())
+
+    # Construir reporte
+    reporte = {
+        "row_count": len(ventas),
+        "column_count": len(ventas.columns),
+        "missing_required_columns": missing_required_columns,
+        "unexpected_columns": unexpected_columns,
+        "duplicate_row_count": duplicate_row_count,
+        "duplicate_supplier_id_row_count": duplicate_supplier_id_row_count,
+        "missing_value_count_by_column": missing_value_count_by_column,
+        "invalid_email_count": invalid_email_count,
+        "invalid_unit_count": invalid_unit_count,
+        "country_values": country_values
+    }
+
+    # Guardar reporte en JSON
+    with open(
+        "submission/data_quality_report.json",
+        "w",
+        encoding="utf-8"
+    ) as archivo:
+        json.dump(reporte, archivo, indent=2)
+
+    return reporte
+

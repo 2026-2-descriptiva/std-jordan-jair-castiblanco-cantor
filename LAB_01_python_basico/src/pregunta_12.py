@@ -9,4 +9,33 @@ def pregunta_12():
         {"A": 177, "B": 187, "C": 114, ...}
     """
 
-    raise NotImplementedError
+    import gzip
+
+    with gzip.open("data/data.csv.gz", "rt", encoding="utf-8") as archivo:
+
+        sumas = {}
+
+        for linea in archivo:
+            columnas = linea.split()
+
+            letra = columnas[0]
+            metrics = columnas[4]
+
+            metricas = metrics.split(",")
+
+            for metrica in metricas:
+                clave, valor = metrica.split(":")
+                valor = int(valor)
+
+                if letra in sumas:
+                    sumas[letra] += valor
+                else:
+                    sumas[letra] = valor
+
+        resultado = {}
+
+        for clave in sorted(sumas):
+            resultado[clave] = sumas[clave]
+
+        return resultado
+

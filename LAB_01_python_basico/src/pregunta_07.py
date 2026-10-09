@@ -11,4 +11,27 @@ def pregunta_07():
         [(0, ["C"]), (1, ["E", "B", "E"]), (2, ["A", "E"]), ...]
     """
 
-    raise NotImplementedError
+    import gzip
+
+    with gzip.open("data/data.csv.gz", "rt", encoding="utf-8") as archivo:
+
+        letras_por_valor = {}
+
+        for linea in archivo:
+            letra = linea.split()[0]
+            valor = int(linea.split()[1])
+
+            if valor in letras_por_valor:
+                letras_por_valor[valor].append(letra)
+            else:
+                letras_por_valor[valor] = [letra]
+
+        resultado = []
+
+        for valor, letras in letras_por_valor.items():
+            resultado.append((valor, letras))
+
+        resultado.sort()
+
+        return resultado
+

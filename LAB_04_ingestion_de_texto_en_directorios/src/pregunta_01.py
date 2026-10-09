@@ -15,7 +15,7 @@ def pregunta_01():
     y `target`, con el nombre de la carpeta de sentimiento (`negative`,
     `neutral` o `positive`). Recorra las carpetas y los archivos en orden
     alfabético, de modo que el resultado sea siempre el mismo. No guarde el
-    índice de Pandas en el CSV.
+    índice de Pandas en el CSV. 
 
     Ejemplo del formato de cada archivo:
 
@@ -26,4 +26,37 @@ def pregunta_01():
         ...
     """
 
-    raise NotImplementedError
+    import glob
+    import os.path
+    import pandas as pd
+
+    if not os.path.exists("submission"):
+        os.makedirs("submission")
+
+    for division in ["train", "test"]:
+
+        registros = []
+
+        carpetas = sorted(glob.glob(f"data/{division}/*"))
+
+        for carpeta in carpetas:
+
+            target = os.path.basename(carpeta)
+
+            archivos = sorted(glob.glob(f"{carpeta}/*.txt"))
+
+            for archivo in archivos:
+
+                with open(archivo, "r", encoding="utf-8") as f:
+                    phrase = f.read().strip()
+
+                registro = {
+                    "phrase": phrase,
+                    "target": target
+                }
+
+                registros.append(registro)
+
+        df = pd.DataFrame(registros)
+
+        df.to_csv(f"submission/{division}_dataset.csv", index=False)
