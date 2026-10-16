@@ -1,4 +1,6 @@
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def build_cohort_analysis() -> pd.DataFrame:
@@ -44,4 +46,132 @@ def build_cohort_analysis() -> pd.DataFrame:
         ...
     """
 
-    raise NotImplementedError
+    # Cargar los datos
+    df = pd.read_csv("data/sales.csv.gz")
+
+    # Convertir OrderDate a tipo fecha
+    df["OrderDate"] = pd.to_datetime(df["OrderDate"])
+
+    # Obtener la primera fecha de compra de cada cliente
+    group_cohorte = df.groupby("CustomerID")["OrderDate"].min()
+
+    # Obtener el mes de primera compra de cada cliente
+    group_cohorte = group_cohorte.dt.strftime("%Y-%m")
+
+    # Preparar la tabla de cohortes para la unión
+    group_cohorte = group_cohorte.rename("cohort_month").reset_index()
+
+    # Incorporar la cohorte a cada orden
+    union = df.merge(
+        group_cohorte,
+        on="CustomerID",
+        how="left"
+    )
+
+    # Convertir el mes de la cohorte a fecha
+    union["cohort_month"] = pd.to_datetime(union["cohort_month"])
+
+    # Calcular los meses absolutos
+    order_month = (
+        union["OrderDate"].dt.year * 12
+        + union["OrderDate"].dt.month
+    )
+
+    cohort_month = (
+        union["cohort_month"].dt.year * 12
+        + union["cohort_month"].dt.month
+    )
+
+    # Calcular los meses transcurridos desde la primera compra
+    union["period_index"] = order_month - cohort_month
+
+    # Contar clientes distintos por cohorte y período
+    active_customers = (
+        union.groupby(["cohort_month", "period_index"])["CustomerID"]
+        .nunique()
+        .reset_index(name="active_customers")
+    )
+
+    # Obtener el tamaño inicial de cada cohorte
+    cohort_size = active_customers[
+        active_customers["period_index"] == 0
+    ]
+
+    # Conservar las columnas necesarias
+    cohort_size = cohort_size[["cohort_month", "active_customers"]]
+
+    # Renombrar el conteo como tamaño de cohorte
+    cohort_size = cohort_size.rename(
+        columns={"active_customers": "cohort_size"}
+    )
+
+    # Incorporar el tamaño inicial de cada cohorte
+    active_customers = active_customers.merge(
+        cohort_size,
+        on="cohort_month",
+        how="left"
+    )
+
+    # Calcular tasa de retención
+    active_customers["retention_rate"] = (
+        active_customers["active_customers"]
+        / active_customers["cohort_size"]
+    )
+
+    # Ordenar por cohorte y período
+    cohort_retention = active_customers.sort_values(
+        by=["cohort_month", "period_index"],
+        ascending=True
+    )
+
+    # Convertir el mes de cohorte al formato AAAA-MM
+    cohort_retention["cohort_month"] = (
+        cohort_retention["cohort_month"].dt.strftime("%Y-%m")
+    )
+
+    # Seleccionar las columnas solicitadas
+    cohort_retention = cohort_retention[[
+        "cohort_month",
+        "period_index",
+        "active_customers",
+        "cohort_size",
+        "retention_rate"
+    ]]
+
+    # Guardar la tabla sin el índice de Pandas
+    cohort_retention.to_csv(
+        "submission/cohort_retention.csv",
+        index=False
+    )
+
+    # Transformar la tabla larga en una matriz para el mapa
+    heatmap_data = cohort_retention.pivot(
+        index="cohort_month",
+        columns="period_index",
+        values="retention_rate"
+    )
+
+    # Crear la figura
+    plt.figure(figsize=(12, 8))
+
+    # Dibujar el mapa de calor
+    sns.heatmap(
+        heatmap_data,
+        annot=True,
+        fmt= ".0%",
+        mask=heatmap_data.isna()
+    )
+
+    plt.title("Retención de clientes por cohorte")
+    plt.xlabel("Meses desde la primera compra")
+    plt.ylabel("Mes de primera compra")
+
+    # Guardar el mapa de calor
+    plt.savefig(
+        "submission/cohort_retention_heatmap.png"
+    )
+
+    # Cerrar la figura
+    #plt.close()
+
+    return cohort_retention

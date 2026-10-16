@@ -1,5 +1,5 @@
 import pandas as pd
-
+from pathlib import Path
 
 def clean_campaign_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
@@ -32,6 +32,7 @@ def clean_campaign_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
     3. `economics.csv`: `client_id`, `cons_price_idx` y
        `euribor_three_months`.
+       
 
     La función también debe retornar las tres tablas, en el orden `client`,
     `campaign` y `economics`.
@@ -43,4 +44,91 @@ def clean_campaign_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         ...
     """
 
-    raise NotImplementedError
+    # Leer e integrar los diez archivos comprimidos
+    files = sorted(Path("data").glob("bank-marketing-campaing-*.csv.gz"))
+
+    df = pd.concat(
+        [pd.read_csv(file) for file in files],
+        ignore_index=True
+    )
+
+    # Convertir los meses a números
+    months = {
+        "jan": "01", "feb": "02", "mar": "03",
+        "apr": "04", "may": "05", "jun": "06",
+        "jul": "07", "aug": "08", "sep": "09",
+        "oct": "10", "nov": "11", "dec": "12"
+    }
+
+    df["month"] = df["month"].map(months)
+
+    # Construir la fecha con el año 2022
+    df["last_contact_date"] = (
+        "2022-" + df["month"] + "-" +
+        df["day"].astype(str).str.zfill(2)
+    )
+
+    # Limpiar job
+    df["job"] = df["job"].str.replace(".", "", regex=False)
+    df["job"] = df["job"].str.replace("-", "_", regex=False)
+
+    # Limpiar education
+    df["education"] = df["education"].str.replace(".", "_", regex=False)
+    df["education"] = df["education"].replace("unknown", pd.NA)
+
+    # Convertir variables del cliente a valores binarios
+    df["credit_default"] = (df["credit_default"] == "yes").astype(int)
+    df["mortgage"] = (df["mortgage"] == "yes").astype(int)
+
+
+    # Convertir resultados de campaña a valores binarios
+    df["previous_outcome"] = (
+        df["previous_outcome"] == "success"
+    ).astype(int)
+
+    df["campaign_outcome"] = (
+        df["campaign_outcome"] == "yes"
+    ).astype(int)
+
+    # Crear la tabla de clientes
+    client = df[[
+        "client_id",
+        "age",
+        "job",
+        "marital",
+        "education",
+        "credit_default",
+        "mortgage"
+    ]].copy()
+
+    # Crear la tabla de campañas
+    campaign = df[[
+        "client_id",
+        "number_contacts",
+        "contact_duration",
+        "previous_campaign_contacts",
+        "previous_outcome",
+        "campaign_outcome",
+        "last_contact_date"
+    ]].copy()
+
+    # Crear la tabla económica
+    economics = df[[
+        "client_id",
+        "cons_price_idx",
+        "euribor_three_months"
+    ]].copy()
+
+    # Crear la carpeta de salida si no existe
+    output_dir = Path("submission")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Guardar los archivos CSV sin índice
+    client.to_csv(output_dir / "client.csv", index=False)
+    campaign.to_csv(output_dir / "campaign.csv", index=False)
+    economics.to_csv(output_dir / "economics.csv", index=False)
+
+    # Devolver los tres DataFrames
+    # return client, campaign, economics
+
+    

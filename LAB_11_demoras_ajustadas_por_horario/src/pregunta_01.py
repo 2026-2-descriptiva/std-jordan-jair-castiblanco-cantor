@@ -58,4 +58,123 @@ def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame]:
         ...
     """
 
-    raise NotImplementedError
+    import pandas as pd
+
+
+    # Cargar los datos de vuelos por aerolínea, día y hora
+    df = pd.read_csv("data/flights_by_carrier_day_hour.csv.gz")
+
+    # Agrupar los vuelos por hora programada de salida
+    hourly_delay_rates = (
+        df.groupby("scheduled_departure_hour")[
+            ["operated_flights", "delayed_departure_15_flights"]
+        ]
+        .sum()
+        .reset_index()
+    )
+
+    # Calcular la tasa de demora de cada hora
+    hourly_delay_rates["delay_rate"] = (
+        hourly_delay_rates["delayed_departure_15_flights"]
+        / hourly_delay_rates["operated_flights"]
+    )
+
+    hourly_delay_rates.to_csv(
+        "submission/hourly_delay_rates.csv",
+        index=False
+    )  
+
+    # Agrupar vuelos por aerolínea y hora
+    agrupacion_ae_hora = (
+        df.groupby(["reporting_airline", "scheduled_departure_hour"])[
+            ["operated_flights", "delayed_departure_15_flights"]
+        ]
+        .sum()
+        .reset_index()
+    )
+
+    # Incorporar la tasa nacional de demora correspondiente a cada hora
+    agrupacion_ae_hora = agrupacion_ae_hora.merge(
+        hourly_delay_rates[["scheduled_departure_hour", "delay_rate"]],
+        on="scheduled_departure_hour",
+        how="left"
+    )
+
+    # Calcular los vuelos demorados esperados por aerolínea y hora
+    agrupacion_ae_hora["expected_delayed_flights"] = (
+        agrupacion_ae_hora["operated_flights"]
+        * agrupacion_ae_hora["delay_rate"]
+    )
+
+    # Agrupar por aerolínea y sumar los valores observados y esperados
+    comparacion_ae = (
+        agrupacion_ae_hora.groupby("reporting_airline")[
+            [
+                "operated_flights",
+                "delayed_departure_15_flights",
+                "expected_delayed_flights"
+            ]
+        ]
+        .sum()
+        .reset_index()
+    )
+
+    # Conservar aerolíneas con al menos 100.000 vuelos operados
+    comparacion_ae = comparacion_ae[
+        comparacion_ae["operated_flights"] >= 100000
+    ]
+
+    # Calcular la tasa de demora observada por aerolínea
+    comparacion_ae["delay_rate"] = (
+        comparacion_ae["delayed_departure_15_flights"]
+        / comparacion_ae["operated_flights"]
+    )
+
+    # Calcular la relación entre demoras observadas y esperadas
+    comparacion_ae["observed_to_expected_ratio"] = (
+        comparacion_ae["delayed_departure_15_flights"]
+        / comparacion_ae["expected_delayed_flights"]
+    )
+
+    # Calcular el ranking sin ajustar
+    comparacion_ae["crude_rank"] = comparacion_ae["delay_rate"].rank(
+        ascending=False
+    )
+
+    # Calcular el ranking ajustado
+    comparacion_ae["adjusted_rank"] = comparacion_ae[
+        "observed_to_expected_ratio"
+    ].rank(ascending=False)
+
+    # Ordenar por el ranking ajustado
+    comparacion_ae = comparacion_ae.sort_values(
+        by="adjusted_rank",
+        ascending=True
+    )
+
+    # Seleccionar las columnas en el orden solicitado
+    comparacion_ae = comparacion_ae[
+        [
+            "reporting_airline",
+            "operated_flights",
+            "delayed_departure_15_flights",
+            "delay_rate",
+            "expected_delayed_flights",
+            "observed_to_expected_ratio",
+            "crude_rank",
+            "adjusted_rank"
+        ]
+    ]
+
+    # Guardar la segunda tabla sin el índice
+    comparacion_ae.to_csv(
+        "submission/carrier_adjusted_delays.csv",
+        index=False
+    )
+
+    # Retornar las dos tablas en el orden del enunciado
+    return (
+        hourly_delay_rates,
+        comparacion_ae
+    )    
+

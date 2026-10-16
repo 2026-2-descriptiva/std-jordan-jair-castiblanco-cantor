@@ -79,5 +79,142 @@ def pregunta_01():
           ...
         }
     """
+    
+    import json
+    from pathlib import Path
+    import pandas as pd
 
-    raise NotImplementedError
+    df = pd.read_csv("data/insurance.csv.gz")
+
+    # Identificadores cuasi-identificadores originales
+    original_qis = ["age", "sex", "bmi", "children", "region"]
+    original_sizes = df.groupby(original_qis, dropna=False).size()
+
+    original_k = int(original_sizes.min())
+    original_unique_records = int((original_sizes == 1).sum())
+
+    # Generalizar edad
+    df["age_group"] = pd.cut(
+        df["age"],
+        bins=[18, 30, 40, 50, 65],
+        labels=["18-29", "30-39", "40-49", "50-64"],
+        right=False
+    )
+
+    # Generalizar IMC
+    df["bmi_group"] = pd.cut(
+        df["bmi"],
+        bins=[float("-inf"), 18.5, 25, 30, float("inf")],
+        labels=["bajo peso", "normal", "sobrepeso", "obesidad"],
+        right=False
+    )
+
+    # Generalizar número de hijos
+    df["children_group"] = pd.cut(
+        df["children"],
+        bins=[-1, 0, 2, float("inf")],
+        labels=["0", "1-2", "3+"]
+    )
+
+    # Definir esquemas
+    schemes = {
+        "with_children": [
+            "age_group", "sex", "bmi_group", "children_group", "region"
+        ],
+        "without_children": [
+            "age_group", "sex", "bmi_group", "region"
+        ]
+    }
+
+    report_schemes = {}
+    published_by_scheme = {}
+
+    # Evaluar esquemas de generalización
+    for name, qis in schemes.items():
+        class_sizes = df.groupby(
+            qis, observed=True, dropna=False
+        ).size()
+
+        valid_classes = class_sizes[class_sizes >= 5]
+
+        row_sizes = df.groupby(
+            qis, observed=True, dropna=False
+        )[qis[0]].transform("size")
+
+        published = df.loc[row_sizes >= 5].copy()
+        published_by_scheme[name] = published
+
+        smoker_diversity = published.groupby(
+            qis, observed=True, dropna=False
+        )["smoker"].nunique()
+
+        classes_without_diversity = smoker_diversity[
+            smoker_diversity == 1
+        ]
+
+        records_without_diversity = int(
+            published.groupby(
+                qis, observed=True, dropna=False
+            ).size().reindex(classes_without_diversity.index).sum()
+        )
+
+        report_schemes[name] = {
+            "quasi_identifiers": qis,
+            "equivalence_classes": int(len(class_sizes)),
+            "k_before_suppression": int(class_sizes.min()),
+            "suppressed_records": int(len(df) - len(published)),
+            "published_records": int(len(published)),
+            "published_classes": int(len(valid_classes)),
+            "classes_without_smoker_diversity": int(
+                len(classes_without_diversity)
+            ),
+            "records_without_smoker_diversity": records_without_diversity
+        }
+
+    # Seleccionar el esquema que suprime menos registros
+    selected_scheme = min(
+        report_schemes,
+        key=lambda name: report_schemes[name]["suppressed_records"]
+    )
+
+    published = published_by_scheme[selected_scheme].copy()
+    selected_qis = schemes[selected_scheme]
+
+    # Indicadores originales y publicados
+    mean_charges_original = float(df["charges"].mean())
+    mean_charges_published = float(published["charges"].mean())
+
+    smoker_rate_original = float((df["smoker"] == "yes").mean())
+    smoker_rate_published = float((published["smoker"] == "yes").mean())
+
+    # Construir reporte
+    report = {
+        "original_k": original_k,
+        "original_unique_records": original_unique_records,
+        "schemes": report_schemes,
+        "selected_scheme": selected_scheme,
+        "mean_charges_original": mean_charges_original,
+        "mean_charges_published": mean_charges_published,
+        "smoker_rate_original": smoker_rate_original,
+        "smoker_rate_published": smoker_rate_published
+    }
+
+    # Guardar entregables
+    output_dir = Path("submission")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(
+        output_dir / "privacy_report.json",
+        "w",
+        encoding="utf-8"
+    ) as file:
+        json.dump(report, file, indent=4, ensure_ascii=False)
+
+    published_columns = selected_qis + ["smoker", "charges"]
+
+    published[published_columns].to_csv(
+        output_dir / "insurance_published.csv",
+        index=False
+    )
+
+    return report
